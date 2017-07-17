@@ -32,7 +32,8 @@ class MyVideoSearch extends Component {
         // burada çok fazla request gitmesini engellemek için 1 sn delay koyuyorum
         if (this.isMobile) {
             if (this.changeTimeout) clearTimeout(this.changeTimeout);
-            this.changeTimeout = setTimeout(function () { this.sendRequest(this.searchString); }, 1000);
+            const scope = this;
+            this.changeTimeout = setTimeout(function () { scope.sendRequest(scope.searchString); }, 1000);
         }
     }
 
