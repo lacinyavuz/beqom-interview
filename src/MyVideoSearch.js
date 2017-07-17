@@ -1,4 +1,4 @@
-﻿import React, { Component } from 'react';
+import React, { Component } from 'react';
 import MyVideoList from './MyVideoList';
 import $ from 'jquery';
 
@@ -7,15 +7,19 @@ class MyVideoSearch extends Component {
         super(props);
         this.state = { searchResult: [] };
 
+        // Reactjs de eventleri bu şekilde bind etmem gerektiğini farkettim
         this.handleChange = this.handleChange.bind(this);
         this.handleSubmit = this.handleSubmit.bind(this);
-
-        this.searchString = "";
 
         // kullanıcının mobil cihaz kullandığını kesin olarak saptamak çok zor
         // burada touch eventlerini destekleyen tüm tarayıcıları mobil varsayıyorum
         this.isMobile = 'ontouchstart' in document.documentElement;
+
+        // Bazı fieldlar tanımlıyorum
         this.changeTimeout = null;
+        this.refreshInterval = null;
+        this.searchString = "";
+        this.refreshQuery = "";
     }
 
     handleChange(event) {
@@ -28,16 +32,20 @@ class MyVideoSearch extends Component {
         // burada çok fazla request gitmesini engellemek için 1 sn delay koyuyorum
         if (this.isMobile) {
             if (this.changeTimeout) clearTimeout(this.changeTimeout);
-            this.changeTimeout = setTimeout(this.handleSubmit, 1000);
+            this.changeTimeout = setTimeout(function () { this.sendRequest(this.searchString); }, 1000);
         }
     }
 
-    handleSubmit(event) {
-        var that = this;
-        
+    sendRequest(queryString) {
+        // önceki request tamamlanmadan yeni refresh veya arama requesti gelirse önceki requesti iptal ediyorum.
+        if (this.refreshInterval) clearInterval(this.refreshInterval);
+
+        // scope'u yakalıyorum ajax içerisinde kullanmak üzere
+        const scope = this;
+
         $.ajax({
             type: 'GET',
-            url: 'http://jsonstub.com/beqominterview/' + this.searchString,
+            url: 'http://jsonstub.com/beqominterview/' + queryString,
             contentType: 'application/json',
             beforeSend: function (request) {
                 request.setRequestHeader('JsonStub-User-Key',
@@ -46,24 +54,26 @@ class MyVideoSearch extends Component {
                     '4d99a9a7-ccbf-4d5b-bd31-8aee887d6460');
             }
         }).done(function (data) {
-            that.setState({ searchResult: data });
-        }).fail(function () {
-            that.setState({ searchResult: [] });
-        });
+            scope.setState({ searchResult: data });
 
-        if (event) event.preventDefault();
+            // Başarılı olan sorguyu kaydedip periyodik olarak çağırıyorum değişiklikleri yakalamak için
+            scope.refreshQuery = queryString;
+            scope.refreshInterval = setInterval(function () { scope.sendRequest(scope.refreshQuery); }, 5000);
+        }).fail(function () {
+            scope.setState({ searchResult: [] });
+        });
+    }
+
+    handleSubmit(event) {
+        this.sendRequest(this.searchString);
+        event.preventDefault();
     }
 
     render() {
         return (
             <div>
                 <form onSubmit={this.handleSubmit}>
-                    <input
-                        placeholder="Search..."
-                        type="text"
-                        value={this.state.value}
-                        onChange={this.handleChange}
-                    />
+                    <input placeholder="Search..." type="text" onChange={this.handleChange} />
                 </form>
                 <br /><br />
                 <MyVideoList videoList={this.state.searchResult} />
